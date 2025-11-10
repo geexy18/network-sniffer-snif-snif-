@@ -1,0 +1,44 @@
+# Wi-Fi Intrusion Detection System - Python Requirements
+# Install with: pip install -r requirements.txt
+
+# Core packet capture and manipulation
+scapy==2.5.0
+
+# Web framework for dashboard
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# WebSocket support for real-time updates
+flask-socketio==5.3.5
+python-socketio==5.10.0
+
+# WSGI server for production
+eventlet==0.33.3
+
+# Additional dependencies (auto-installed with above, but listed for clarity)
+python-engineio==4.8.0
+
+# Optional but recommended packages
+
+# For better JSON handling
+simplejson==3.19.2
+
+# For database integration (if extending the project)
+# SQLAlchemy==2.0.23
+
+# For email notifications (if extending the project)
+# secure-smtplib==0.1.1
+
+# For Slack/Discord integration (if extending the project)
+# requests==2.31.0
+
+# For data analysis and visualization (if extending the project)
+# pandas==2.1.4
+# matplotlib==3.8.2
+
+# System requirements (install via apt):
+# - libpcap-dev
+# - python3-dev
+# - aircrack-ng
+# - wireless-tools
+# - iw
