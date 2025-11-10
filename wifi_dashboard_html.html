@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wi-Fi IDS Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            background: rgba(76, 175, 80, 0.9);
+            border-radius: 20px;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+
+        .alerts-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .section-header {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .alert {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            animation: slideIn 0.5s;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .alert.critical {
+            border-left-color: #f44336;
+            background: rgba(244, 67, 54, 0.2);
+        }
+
+        .alert.high {
+            border-left-color: #ff9800;
+            background: rgba(255, 152, 0, 0.2);
+        }
+
+        .alert.medium {
+            border-left-color: #ffeb3b;
+            background: rgba(255, 235, 59, 0.2);
+        }
+
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .alert-type {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .alert-time {
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+
+        .alert-message {
+            margin-bottom: 8px;
+        }
+
+        .alert-details {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            font-family: 'Courier New', monospace;
+        }
+
+        .ap-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .ap-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .ap-ssid {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .ap-bssid {
+            opacity: 0.8;
+            font-size: 0.9em;
+            font-family: 'Courier New', monospace;
+        }
+
+        .no-alerts {
+            text-align: center;
+            padding: 40px;
+            opacity: 0.6;
+            font-style: italic;
+        }
+
+        .severity-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .severity-critical {
+            background: #f44336;
+        }
+
+        .severity-high {
+            background: #ff9800;
+        }
+
+        .severity-medium {
+            background: #ffeb3b;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ Wi-Fi Intrusion Detection System</h1>
+            <div class="status-badge" id="status">⚡ MONITORING ACTIVE</div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">📊 Packets Processed</div>
+                <div class="stat-value" id="packets">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🚨 Total Alerts</div>
+                <div class="stat-value" id="totalAlerts">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⚠️ Deauth Attacks</div>
+                <div class="stat-value" id="deauthAttacks">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🔴 Rogue APs</div>
+                <div class="stat-value" id="rogueAps">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">📡 Known APs</div>
+                <div class="stat-value" id="knownAps">0</div>
+            </div>
+        </div>
+
+        <div class="alerts-section">
+            <div class="section-header">🚨 Recent Security Alerts</div>
+            <div id="alertsContainer">
+                <div class="no-alerts">No alerts detected yet. Monitoring in progress...</div>
+            </div>
+        </div>
+
+        <div class="alerts-section">
+            <div class="section-header">📡 Detected Access Points</div>
+            <div id="apContainer" class="ap-list">
+                <div class="no-alerts">Scanning for access points...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let alerts = [];
+        let aps = {};
+
+        // Handle initial data
+        socket.on('initial_data', (data) => {
+            alerts = data.alerts || [];
+            aps = data.aps || {};
+            updateStats(data.stats);
+            updateAlerts();
+            updateAPs();
+        });
+
+        // Handle new alerts
+        socket.on('new_alert', (alert) => {
+            alerts.unshift(alert);
+            if (alerts.length > 50) alerts.pop();
+            updateAlerts();
+            
+            // Play sound or notification
+            playAlertSound(alert.severity);
+        });
+
+        // Handle stats updates
+        socket.on('stats_update', (stats) => {
+            updateStats(stats);
+        });
+
+        // Handle new APs
+        socket.on('new_ap', (ap) => {
+            aps[ap.bssid] = ap;
+            updateAPs();
+        });
+
+        function updateStats(stats) {
+            document.getElementById('packets').textContent = stats.packets_processed || 0;
+            document.getElementById('totalAlerts').textContent = stats.total_alerts || 0;
+            document.getElementById('deauthAttacks').textContent = stats.deauth_attacks || 0;
+            document.getElementById('rogueAps').textContent = stats.rogue_aps || 0;
+            document.getElementById('knownAps').textContent = Object.keys(aps).length;
+        }
+
+        function updateAlerts() {
+            const container = document.getElementById('alertsContainer');
+            
+            if (alerts.length === 0) {
+                container.innerHTML = '<div class="no-alerts">No alerts detected yet. Monitoring in progress...</div>';
+                return;
+            }
+
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert ${alert.severity}">
+                    <div class="alert-header">
+                        <div class="alert-type">
+                            ${alert.type} 
+                            <span class="severity-badge severity-${alert.severity}">${alert.severity}</span>
+                        </div>
+                        <div class="alert-time">${formatTime(alert.timestamp)}</div>
+                    </div>
+                    <div class="alert-message">${alert.message}</div>
+                    <div class="alert-details">${JSON.stringify(alert.details, null, 2)}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateAPs() {
+            const container = document.getElementById('apContainer');
+            const apList = Object.entries(aps);
+            
+            if (apList.length === 0) {
+                container.innerHTML = '<div class="no-alerts">Scanning for access points...</div>';
+                return;
+            }
+
+            container.innerHTML = apList.map(([bssid, ap]) => `
+                <div class="ap-card">
+                    <div class="ap-ssid">📶 ${ap.ssid || 'Hidden Network'}</div>
+                    <div class="ap-bssid">MAC: ${bssid}</div>
+                    <div class="ap-bssid">First seen: ${formatTime(ap.first_seen)}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('knownAps').textContent = apList.length;
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString();
+        }
+
+        function playAlertSound(severity) {
+            // Create a simple beep for critical alerts
+            if (severity === 'critical') {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            }
+        }
+
+        // Connection status handling
+        socket.on('connect', () => {
+            document.getElementById('status').textContent = '⚡ MONITORING ACTIVE';
+            document.getElementById('status').style.background = 'rgba(76, 175, 80, 0.9)';
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('status').textContent = '❌ DISCONNECTED';
+            document.getElementById('status').style.background = 'rgba(244, 67, 54, 0.9)';
+        });
+    </script>
+</body>
+</html>
