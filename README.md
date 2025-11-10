@@ -4,7 +4,7 @@ A real-time wireless network security monitoring system built for Raspberry Pi t
 
 ![Version](https://img.shields.io/badge/version-1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
-![License](https://img.shields.io/badge/license-MIT-orange)
+![License]([https://img.shields.io/badge/license-MIT-orange](https://mit-license.org/))
 
 ## 🎯 Features
 
